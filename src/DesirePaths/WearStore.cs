@@ -68,6 +68,33 @@ namespace DesirePaths
             return advancedTo;
         }
 
+        /// <summary>World-space centre of the cell containing <paramref name="pos"/> (y kept).</summary>
+        public static Vector3 CellCentre(Vector3 pos)
+        {
+            float size = PathConfig.CellSize.Value;
+            return new Vector3((Mathf.FloorToInt(pos.x / size) + 0.5f) * size, pos.y,
+                               (Mathf.FloorToInt(pos.z / size) + 0.5f) * size);
+        }
+
+        /// <summary>Centres of the up to 8 neighbouring cells that have reached at least <paramref name="stage"/>.</summary>
+        public List<Vector3> NeighboursAtLeast(Vector3 pos, WearStage stage)
+        {
+            float size = PathConfig.CellSize.Value;
+            int cx = Mathf.FloorToInt(pos.x / size);
+            int cz = Mathf.FloorToInt(pos.z / size);
+            var result = new List<Vector3>();
+            for (int dz = -1; dz <= 1; dz++)
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                if (dx == 0 && dz == 0)
+                    continue;
+                long key = ((long)(cx + dx) << 32) | (uint)(cz + dz);
+                if (_cells.TryGetValue(key, out Cell c) && c.Stage >= stage)
+                    result.Add(new Vector3((cx + dx + 0.5f) * size, pos.y, (cz + dz + 0.5f) * size));
+            }
+            return result;
+        }
+
         /// <summary>Calls <paramref name="visit"/> with the centre of every cell at DirtPath or above.</summary>
         public void ForEachRoad(System.Action<Vector3, WearStage> visit)
         {

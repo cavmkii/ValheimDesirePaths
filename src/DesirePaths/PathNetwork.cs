@@ -12,7 +12,7 @@ namespace DesirePaths
     /// </summary>
     internal static class PathNetwork
     {
-        public const int ProtocolVersion = 3;
+        public const int ProtocolVersion = 5;
 
         private const string RpcHello = "DesirePaths_Hello";
         private const string RpcHelloAck = "DesirePaths_HelloAck";
@@ -153,22 +153,28 @@ namespace DesirePaths
             // stages at once (e.g. after a config change) still gets the in-between looks.
             int[] thresholds = PathConfig.Thresholds();
             ShapeSettings shape = ShapeSettings.FromConfig();
+            // Paint from the cell's centre, joined to neighbours already at the stage.
+            Vector3 centre = WearStore.CellCentre(pos);
             for (var stage = previous + 1; stage <= advanced; stage++)
             {
                 if (!WearStore.IsEnabled(thresholds, (int)stage))
                     continue;
 
+                List<Vector3> links = store.NeighboursAtLeast(pos, stage);
                 if (applyLocally)
                 {
-                    if (TerrainShaper.Apply(pos, stage, shape))
+                    if (TerrainShaper.Apply(centre, stage, shape, links))
                         Plugin.AnnounceStage(stage);
                 }
                 else
                 {
                     var pkg = new ZPackage();
-                    pkg.Write(pos);
+                    pkg.Write(centre);
                     pkg.Write((int)stage);
                     shape.Write(pkg);
+                    pkg.Write(links.Count);
+                    foreach (Vector3 l in links)
+                        pkg.Write(l);
                     ZRoutedRpc.instance.InvokeRoutedRPC(sender, RpcApply, pkg);
                 }
             }
@@ -306,8 +312,12 @@ namespace DesirePaths
             Vector3 pos = pkg.ReadVector3();
             var stage = (WearStage)pkg.ReadInt();
             ShapeSettings shape = ShapeSettings.Read(pkg);
+            int count = pkg.ReadInt();
+            var links = new List<Vector3>(count);
+            for (int i = 0; i < count; i++)
+                links.Add(pkg.ReadVector3());
 
-            if (TerrainShaper.Apply(pos, stage, shape))
+            if (TerrainShaper.Apply(pos, stage, shape, links))
                 Plugin.AnnounceStage(stage);
         }
     }

@@ -8,7 +8,7 @@ A BepInEx mod for Valheim. Ground that gets walked on often wears in over time:
 4. **Gravel.** Stone starts showing through the dirt in patches.
 5. **Stone road.** Fully paved, and smoothed once more.
 
-The terrain paint is a blend, not on or off: red is dirt and blue is paving, and partial amounts mix the textures. The early stages paint partial dirt in patches, using noise, so they look scuffed rather than smeared. The farmland (green) channel is never touched.
+The terrain paint is a blend, not on or off: red is dirt and blue is paving, and partial amounts mix the textures. The early stages paint dirt in patches, using noise, so they look scuffed rather than smeared. Worn patches are strong enough for the grass to go, giving patchy green with bare ground between. The farmland (green) channel is never touched.
 
 Each stage needs a configurable number of steps on top of the stage before it. Routes you only walk now and then fade out of the count, so only the routes you keep using turn into roads.
 
@@ -16,7 +16,7 @@ Each stage needs a configurable number of steps on top of the stage before it. R
 
 - The world is split into a grid of cells (1 m by default). Walking into a cell on bare terrain counts as one step there. Floors, rocks, water, boats, dungeons and jumping don't count.
 - The same player can only add a step to the same cell once every `SameCellCooldown` seconds. That stops someone wearing a road by standing on a cell boundary or running in circles.
-- When a cell's count passes a threshold, the mod edits that zone's terrain data directly: it pulls heights toward the local average for smoothing, and paints the ground dirt or paved. It then saves the zone, which syncs the change to other players like any hoe edit. Edits don't grow the save, because Valheim stores terrain changes per vertex, not per operation. (Spawning a `TerrainOp` with custom settings doesn't work in current Valheim, which sends terrain operations by prefab and looks the settings up in its registry.)
+- When a cell's count passes a threshold, the mod edits that zone's terrain data directly: it pulls heights toward the local average for smoothing, and paints the ground. The paint is a stroke from the cell's centre to every neighbouring cell already at that stage, so the trail comes out as a continuous strip rather than a row of circles. It then saves the zone, which syncs the change to other players like any hoe edit. Edits don't grow the save, because Valheim stores terrain changes per vertex, not per operation. (Spawning a `TerrainOp` with custom settings doesn't work in current Valheim, which sends terrain operations by prefab and looks the settings up in its registry.)
 - Stages are never undone. Decay only lowers the step count toward the *next* stage.
 
 ### Map
@@ -86,9 +86,9 @@ Add `-p:PackageZip=true` to also write `dist/DesirePaths-<version>.zip`, with th
 
 1. In Vortex, manage Valheim and install **BepInExPack for Valheim** from Nexus. Launch the game once so BepInEx sets itself up, then quit.
 2. Build: `dotnet build src/DesirePaths/DesirePaths.csproj -c Release -p:ValheimDir="<Valheim folder>" -p:PackageZip=true`
-3. Drag `dist/DesirePaths-0.3.1.zip` onto Vortex's Mods page (or use *Install From File*). Enable it and click *Deploy*.
+3. Drag `dist/DesirePaths-0.3.2.zip` onto Vortex's Mods page (or use *Install From File*). Enable it and click *Deploy*.
 4. Check that `<Valheim folder>/BepInEx/plugins/` now contains `DesirePaths.dll`, either directly or in a subfolder. If it's somewhere else, open the mod in Vortex, set its *Mod Type* to the BepInEx plugin type, and deploy again.
-5. Launch the game. `BepInEx/LogOutput.log` should contain `Desire Paths 0.3.1 loaded.`, and `BepInEx/config/cavmkii.DesirePaths.cfg` should exist.
+5. Launch the game. `BepInEx/LogOutput.log` should contain `Desire Paths 0.3.2 loaded.`, and `BepInEx/config/cavmkii.DesirePaths.cfg` should exist.
 
 When you rebuild, install the new zip over the old one in Vortex (choose *Replace*) and deploy again.
 
