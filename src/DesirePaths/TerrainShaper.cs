@@ -203,7 +203,7 @@ namespace DesirePaths
             tc.m_lastOpPoint = Vector3.zero;
             tc.m_lastOpRadius = 0f;
             tc.Save();
-            tc.m_hmap.Poke(false);
+            tc.m_hmap.Poke();
         }
 
         private static bool BuildingsNearby(Vector3 pos, ShapeSettings shape)
