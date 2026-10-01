@@ -196,6 +196,7 @@ namespace DesirePaths
             public PaintKind Kind;
             public float Coverage; // share of the area that shows wear (patch styles)
             public float Amount;   // channel strength where it shows (patch styles)
+            public float Scale;    // noise frequency: higher = smaller patches
         }
 
         /// <summary>
@@ -205,27 +206,30 @@ namespace DesirePaths
         /// </summary>
         private static PaintStyle StyleFor(WearStage stage)
         {
-            PaintStyle Patches(PaintKind kind, float coverage, float amount) =>
-                new PaintStyle { Kind = kind, Coverage = coverage, Amount = amount };
+            PaintStyle Patches(PaintKind kind, float coverage, float amount, float scale) =>
+                new PaintStyle { Kind = kind, Coverage = coverage, Amount = amount, Scale = scale };
 
             switch (stage)
             {
-                case WearStage.Trampled: return Patches(PaintKind.DirtPatches, 0.5f, 0.7f);
-                case WearStage.Worn: return Patches(PaintKind.DirtPatches, 0.8f, 1f);
+                // Sparse small scuffs of bare ground. Partial-strength dirt was invisible in game:
+                // the grass stays on top of it, so the spots are full strength and kept few.
+                case WearStage.Trampled: return Patches(PaintKind.DirtPatches, 0.42f, 1f, 1.1f);
+                case WearStage.Worn: return Patches(PaintKind.DirtPatches, 0.8f, 1f, 0.45f);
                 case WearStage.DirtPath: return new PaintStyle { Kind = PaintKind.DirtFull };
-                case WearStage.Gravel: return Patches(PaintKind.PavingPatches, 0.6f, 0.6f);
+                case WearStage.Gravel: return Patches(PaintKind.PavingPatches, 0.6f, 0.6f, 0.45f);
                 case WearStage.StoneRoad: return new PaintStyle { Kind = PaintKind.PavingFull };
                 default: return new PaintStyle { Kind = PaintKind.None };
             }
         }
 
         /// <summary>
-        /// 0..1 noise used to make early wear patchy instead of a uniform smear. Perlin gives
-        /// blobs a couple of metres across; a little per-node jitter breaks up their edges.
+        /// 0..1 noise used to make early wear patchy instead of a uniform smear. At scale 0.45 Perlin
+        /// gives blobs a couple of metres across, at 1.1 sub-metre scuffs; a little per-node jitter
+        /// breaks up their edges.
         /// </summary>
-        private static float Patchiness(Vector3 world)
+        private static float Patchiness(Vector3 world, float scale)
         {
-            float n = Mathf.PerlinNoise(world.x * 0.45f + 1000f, world.z * 0.45f + 1000f);
+            float n = Mathf.PerlinNoise(world.x * scale + 1000f, world.z * scale + 1000f);
             float jitter = Mathf.PerlinNoise(world.x * 2.3f + 500f, world.z * 2.3f + 500f);
             return Mathf.Clamp01(n * 0.8f + jitter * 0.2f);
         }
@@ -273,7 +277,7 @@ namespace DesirePaths
                     {
                         // Wear is likelier near the middle of the trail.
                         float coverage = style.Coverage * (1f - 0.5f * d);
-                        float show = Mathf.Clamp01((coverage - Patchiness(world)) * 5f);
+                        float show = Mathf.Clamp01((coverage - Patchiness(world, style.Scale)) * 5f);
                         float amount = show * edge * style.Amount;
                         if (amount < 0.02f)
                             continue; // leave untouched ground untouched
