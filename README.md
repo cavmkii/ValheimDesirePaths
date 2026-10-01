@@ -12,7 +12,7 @@ Each stage needs a configurable number of steps. Routes you only walk now and th
 
 - The world is split into a grid of cells (1 m by default). Walking into a cell on bare terrain counts as one step there. Floors, rocks, water, boats, dungeons and jumping don't count.
 - The same player can only add a step to the same cell once every `SameCellCooldown` seconds. That stops someone wearing a road by standing on a cell boundary or running in circles.
-- When a cell's count passes a threshold, the mod runs one of the game's own terrain operations at that spot (`TerrainOp`, the same thing a hoe piece does when placed). The change is saved in the world and synced to other players like any hoe edit. The number of edits doesn't grow the save, because Valheim stores terrain changes per vertex, not per operation.
+- When a cell's count passes a threshold, the mod edits that zone's terrain data directly: it pulls heights toward the local average for smoothing, and paints the ground dirt or paved. It then saves the zone, which syncs the change to other players like any hoe edit. Edits don't grow the save, because Valheim stores terrain changes per vertex, not per operation. (Spawning a `TerrainOp` with custom settings doesn't work in current Valheim, which sends terrain operations by prefab and looks the settings up in its registry.)
 - Stages are never undone. Decay only lowers the step count toward the *next* stage.
 
 ### Safeguards
@@ -70,17 +70,17 @@ Add `-p:PackageZip=true` to also write `dist/DesirePaths-<version>.zip`, with th
 
 1. In Vortex, manage Valheim and install **BepInExPack for Valheim** from Nexus. Launch the game once so BepInEx sets itself up, then quit.
 2. Build: `dotnet build src/DesirePaths/DesirePaths.csproj -c Release -p:ValheimDir="<Valheim folder>" -p:PackageZip=true`
-3. Drag `dist/DesirePaths-0.1.0.zip` onto Vortex's Mods page (or use *Install From File*). Enable it and click *Deploy*.
+3. Drag `dist/DesirePaths-0.1.1.zip` onto Vortex's Mods page (or use *Install From File*). Enable it and click *Deploy*.
 4. Check that `<Valheim folder>/BepInEx/plugins/` now contains `DesirePaths.dll`, either directly or in a subfolder. If it's somewhere else, open the mod in Vortex, set its *Mod Type* to the BepInEx plugin type, and deploy again.
-5. Launch the game. `BepInEx/LogOutput.log` should contain `Desire Paths 0.1.0 loaded.`, and `BepInEx/config/cavmkii.DesirePaths.cfg` should exist.
+5. Launch the game. `BepInEx/LogOutput.log` should contain `Desire Paths 0.1.1 loaded.`, and `BepInEx/config/cavmkii.DesirePaths.cfg` should exist.
 
 When you rebuild, install the new zip over the old one in Vortex (choose *Replace*) and deploy again.
 
 ## Status
 
-This is an untested first version. It compiles, and the step counting, decay and save file logic were tested outside the game. Nobody has run it in Valheim yet. Things to check in game:
+Early version. Tested in game: the plugin loads, steps are counted, and stages are reached. Things still to confirm in game:
 
-- Spawning a bare `TerrainOp` applies the operation and cleans up after itself (`TerrainShaper.Run`).
+- Editing the zone's terrain data directly shows up in game and survives a reload. Each stage change logs how many height and paint nodes it touched.
 - The default radii and smoothing strength look right.
 - Reading the paint under a cell, used for "don't downgrade a paved road", picks the right cell. It's best effort; if it reads wrong, the paint operation still runs.
 
