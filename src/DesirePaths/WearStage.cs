@@ -22,7 +22,6 @@ namespace DesirePaths
         public float StoneRoadRadius;
         public float BuildingClearance;
         public bool ProtectCultivated;
-        public float WearIntensity;
 
         public static ShapeSettings FromConfig() => new ShapeSettings
         {
@@ -32,7 +31,6 @@ namespace DesirePaths
             StoneRoadRadius = PathConfig.StoneRoadRadius.Value,
             BuildingClearance = PathConfig.BuildingClearance.Value,
             ProtectCultivated = PathConfig.ProtectCultivated.Value,
-            WearIntensity = PathConfig.WearIntensity.Value,
         };
 
         public void Write(ZPackage pkg)
@@ -43,7 +41,6 @@ namespace DesirePaths
             pkg.Write(StoneRoadRadius);
             pkg.Write(BuildingClearance);
             pkg.Write(ProtectCultivated);
-            pkg.Write(WearIntensity);
         }
 
         public static ShapeSettings Read(ZPackage pkg) => new ShapeSettings
@@ -54,7 +51,6 @@ namespace DesirePaths
             StoneRoadRadius = pkg.ReadSingle(),
             BuildingClearance = pkg.ReadSingle(),
             ProtectCultivated = pkg.ReadBool(),
-            WearIntensity = pkg.ReadSingle(),
         };
     }
 }

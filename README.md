@@ -58,7 +58,6 @@ Step data is saved in `BepInEx/config/DesirePaths/`, one file per world. It's wr
 | `SmoothRadius` / `SmoothPower` | 1.5 m / 3 | |
 | `DirtPathRadius` / `StoneRoadRadius` | 1.0 m / 1.0 m | Painted radius around each worn cell. Neighbouring cells overlap into a continuous strip. |
 | `BuildingClearance` | 2 m | -1 smooths even next to buildings. |
-| `WearIntensity` | 1.0 | Scales how much ground the patchy stages cover and how strong they are. Raise it if early wear is hard to see. |
 | `ProtectCultivated` | true | |
 | `ExcludedBiomes` | Ocean | Comma-separated, e.g. `Ocean, AshLands`. |
 | `ShowOnMap` | true | Draw paths and roads on the map. |

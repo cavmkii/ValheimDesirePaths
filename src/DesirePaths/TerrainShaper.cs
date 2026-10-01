@@ -51,7 +51,7 @@ namespace DesirePaths
 
             // Never downgrade: hand-paved ground is left as is, and dirt (e.g. a hoe path) isn't
             // repainted by the dirt stages.
-            PaintStyle style = StyleFor(stage, shape.WearIntensity);
+            PaintStyle style = StyleFor(stage);
             bool paint = style.Kind != PaintKind.None
                 && surface != Surface.Paved
                 && !(surface == Surface.Dirt && stage <= WearStage.DirtPath);
@@ -203,15 +203,10 @@ namespace DesirePaths
         /// there. Strong dirt (roughly above half) is what makes the game drop grass, so Worn uses
         /// full-strength patches: patchy grass with bare ground between, short of a hoed path.
         /// </summary>
-        private static PaintStyle StyleFor(WearStage stage, float intensity)
+        private static PaintStyle StyleFor(WearStage stage)
         {
-            float k = Mathf.Max(0f, intensity);
-            PaintStyle Patches(PaintKind kind, float coverage, float amount) => new PaintStyle
-            {
-                Kind = kind,
-                Coverage = Mathf.Clamp01(coverage * k),
-                Amount = Mathf.Clamp01(amount * k),
-            };
+            PaintStyle Patches(PaintKind kind, float coverage, float amount) =>
+                new PaintStyle { Kind = kind, Coverage = coverage, Amount = amount };
 
             switch (stage)
             {
