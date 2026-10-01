@@ -2,7 +2,7 @@
 
 A BepInEx mod for Valheim. Ground that gets walked on often wears in over time:
 
-1. **Trampled.** Faint brown patches show through the grass, and bumps get lightly smoothed.
+1. **Trampled.** Small scattered scuffs of bare ground appear, and bumps get lightly smoothed.
 2. **Worn.** The patches grow and darken into a broken trail. Grass still grows.
 3. **Dirt path.** Bare dirt, the same as the hoe's path tool. The ground is smoothed again.
 4. **Gravel.** Stone starts showing through the dirt in patches.
@@ -86,9 +86,9 @@ Add `-p:PackageZip=true` to also write `dist/DesirePaths-<version>.zip`, with th
 
 1. In Vortex, manage Valheim and install **BepInExPack for Valheim** from Nexus. Launch the game once so BepInEx sets itself up, then quit.
 2. Build: `dotnet build src/DesirePaths/DesirePaths.csproj -c Release -p:ValheimDir="<Valheim folder>" -p:PackageZip=true`
-3. Drag `dist/DesirePaths-0.3.2.zip` onto Vortex's Mods page (or use *Install From File*). Enable it and click *Deploy*.
+3. Drag `dist/DesirePaths-0.3.3.zip` onto Vortex's Mods page (or use *Install From File*). Enable it and click *Deploy*.
 4. Check that `<Valheim folder>/BepInEx/plugins/` now contains `DesirePaths.dll`, either directly or in a subfolder. If it's somewhere else, open the mod in Vortex, set its *Mod Type* to the BepInEx plugin type, and deploy again.
-5. Launch the game. `BepInEx/LogOutput.log` should contain `Desire Paths 0.3.2 loaded.`, and `BepInEx/config/cavmkii.DesirePaths.cfg` should exist.
+5. Launch the game. `BepInEx/LogOutput.log` should contain `Desire Paths 0.3.3 loaded.`, and `BepInEx/config/cavmkii.DesirePaths.cfg` should exist.
 
 When you rebuild, install the new zip over the old one in Vortex (choose *Replace*) and deploy again.
 

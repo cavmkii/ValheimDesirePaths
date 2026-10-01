@@ -11,7 +11,7 @@ namespace DesirePaths
     {
         public const string Guid = "cavmkii.DesirePaths";
         public const string Name = "Desire Paths";
-        public const string Version = "0.3.2";
+        public const string Version = "0.3.3";
 
         private const float AutosaveInterval = 120f;
 
