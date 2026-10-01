@@ -66,6 +66,20 @@ namespace DesirePaths
             return advancedTo;
         }
 
+        /// <summary>Calls <paramref name="visit"/> with the centre of every cell at DirtPath or above.</summary>
+        public void ForEachRoad(System.Action<Vector3, WearStage> visit)
+        {
+            float size = PathConfig.CellSize.Value;
+            foreach (var kv in _cells)
+            {
+                if (kv.Value.Stage < WearStage.DirtPath)
+                    continue;
+                int x = (int)(kv.Key >> 32);
+                int z = (int)(kv.Key & 0xffffffffL);
+                visit(new Vector3((x + 0.5f) * size, 0f, (z + 0.5f) * size), kv.Value.Stage);
+            }
+        }
+
         private static float Decayed(Cell cell, double now)
         {
             float perDay = PathConfig.DecayPerDay.Value;
