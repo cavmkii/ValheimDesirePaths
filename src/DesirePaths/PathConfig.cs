@@ -32,6 +32,9 @@ namespace DesirePaths
         public static ConfigEntry<bool> ShowOnMap;
         public static ConfigEntry<Color> DirtPathMapColor;
         public static ConfigEntry<Color> StoneRoadMapColor;
+        public static ConfigEntry<float> MapDotSize;
+        public static ConfigEntry<float> MapDotSpacing;
+        public static ConfigEntry<bool> MapRespectFog;
 
         public static ConfigEntry<bool> ShowStageMessages;
         public static ConfigEntry<bool> VerboseLogging;
@@ -99,17 +102,25 @@ namespace DesirePaths
                 "Biomes where steps are not counted. Combine with commas, e.g. \"Ocean, AshLands\".");
 
             ShowOnMap = cfg.Bind("5 - Map", "ShowOnMap", true,
-                "Draw dirt paths and stone roads on the minimap and the large map. Each map pixel covers several metres, so paths show as a trail of coloured pixels.");
+                "Draw dirt paths and stone roads on the minimap and the large map as dotted lines.");
 
-            DirtPathMapColor = cfg.Bind("5 - Map", "DirtPathMapColor", new Color(0.55f, 0.42f, 0.27f, 1f),
+            DirtPathMapColor = cfg.Bind("5 - Map", "DirtPathMapColor", new Color(0.45f, 0.3f, 0.15f, 1f),
                 "Map colour for dirt paths.");
 
-            StoneRoadMapColor = cfg.Bind("5 - Map", "StoneRoadMapColor", new Color(0.62f, 0.62f, 0.6f, 1f),
+            StoneRoadMapColor = cfg.Bind("5 - Map", "StoneRoadMapColor", new Color(0.2f, 0.2f, 0.22f, 1f),
                 "Map colour for stone roads.");
 
-            ShowOnMap.SettingChanged += (_, __) => MapRoads.RequestRepaint();
-            DirtPathMapColor.SettingChanged += (_, __) => MapRoads.RequestRepaint();
-            StoneRoadMapColor.SettingChanged += (_, __) => MapRoads.RequestRepaint();
+            MapDotSize = cfg.Bind("5 - Map", "MapDotSize", 4f,
+                new ConfigDescription("Diameter of path dots on the map, in screen pixels. Road dots are drawn 25% larger.",
+                    new AcceptableValueRange<float>(1f, 20f)));
+
+            MapDotSpacing = cfg.Bind("5 - Map", "MapDotSpacing", 9f,
+                new ConfigDescription("Rough gap between dots on screen, in pixels. Dots merge as you zoom out so the line stays readable.",
+                    new AcceptableValueRange<float>(3f, 50f)));
+
+            MapRespectFog = cfg.Bind("5 - Map", "MapRespectFog", true,
+                "Only draw paths in areas you (or players sharing their map with you) have explored.");
+
 
             ShowStageMessages = cfg.Bind("6 - Debug", "ShowStageMessages", false,
                 "Show a message in the corner of the screen when ground under you wears to a new stage.");
