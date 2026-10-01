@@ -58,4 +58,20 @@
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(BepInExDir)/plugins/DesirePaths" />
   </Target>
 
+  <!--
+    dotnet build -c Release -p:PackageZip=true writes dist/DesirePaths-<version>.zip with the
+    DLL at the archive root, which mod managers (Vortex, r2modman) install into BepInEx/plugins.
+  -->
+  <Target Name="PackageZip" AfterTargets="Build" Condition="'$(PackageZip)' == 'true'">
+    <PropertyGroup>
+      <ZipStaging>$(BaseIntermediateOutputPath)zip/</ZipStaging>
+      <DistDir>$(MSBuildProjectDirectory)/../../dist/</DistDir>
+    </PropertyGroup>
+    <RemoveDir Directories="$(ZipStaging)" />
+    <Copy SourceFiles="$(TargetPath);$(MSBuildProjectDirectory)/../../README.md;$(MSBuildProjectDirectory)/../../thunderstore/manifest.json" DestinationFolder="$(ZipStaging)" />
+    <MakeDir Directories="$(DistDir)" />
+    <ZipDirectory SourceDirectory="$(ZipStaging)" DestinationFile="$(DistDir)DesirePaths-$(Version).zip" Overwrite="true" />
+    <Message Importance="high" Text="Packaged $(DistDir)DesirePaths-$(Version).zip" />
+  </Target>
+
 </Project>

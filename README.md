@@ -64,6 +64,18 @@ dotnet build src/DesirePaths/DesirePaths.csproj -c Release -p:ValheimDir="/path/
 
 The project looks for the game in the default Steam location if you don't pass a path.
 
+Add `-p:PackageZip=true` to also write `dist/DesirePaths-<version>.zip`, with the DLL at the root of the archive, ready for a mod manager.
+
+### Installing with Vortex
+
+1. In Vortex, manage Valheim and install **BepInExPack for Valheim** from Nexus. Launch the game once so BepInEx sets itself up, then quit.
+2. Build: `dotnet build src/DesirePaths/DesirePaths.csproj -c Release -p:ValheimDir="<Valheim folder>" -p:PackageZip=true`
+3. Drag `dist/DesirePaths-0.1.0.zip` onto Vortex's Mods page (or use *Install From File*). Enable it and click *Deploy*.
+4. Check that `<Valheim folder>/BepInEx/plugins/` now contains `DesirePaths.dll`, either directly or in a subfolder. If it's somewhere else, open the mod in Vortex, set its *Mod Type* to the BepInEx plugin type, and deploy again.
+5. Launch the game. `BepInEx/LogOutput.log` should contain `Desire Paths 0.1.0 loaded.`, and `BepInEx/config/cavmkii.DesirePaths.cfg` should exist.
+
+When you rebuild, install the new zip over the old one in Vortex (choose *Replace*) and deploy again.
+
 ## Status
 
 This is an untested first version. It compiles, and the step counting, decay and save file logic were tested outside the game. Nobody has run it in Valheim yet. Things to check in game:
