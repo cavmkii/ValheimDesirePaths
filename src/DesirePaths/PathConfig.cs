@@ -32,8 +32,7 @@ namespace DesirePaths
         public static ConfigEntry<bool> ShowOnMap;
         public static ConfigEntry<Color> DirtPathMapColor;
         public static ConfigEntry<Color> StoneRoadMapColor;
-        public static ConfigEntry<float> MapDotSize;
-        public static ConfigEntry<float> MapDotSpacing;
+        public static ConfigEntry<float> MapLineWidth;
         public static ConfigEntry<bool> MapRespectFog;
 
         public static ConfigEntry<bool> ShowStageMessages;
@@ -102,21 +101,17 @@ namespace DesirePaths
                 "Biomes where steps are not counted. Combine with commas, e.g. \"Ocean, AshLands\".");
 
             ShowOnMap = cfg.Bind("5 - Map", "ShowOnMap", true,
-                "Draw dirt paths and stone roads on the minimap and the large map as dotted lines.");
+                "Draw dirt paths (dash and three dots, like an intermittent stream on a topo map) and stone roads (heavy dashes) on the minimap and the large map.");
 
-            DirtPathMapColor = cfg.Bind("5 - Map", "DirtPathMapColor", new Color(0.45f, 0.3f, 0.15f, 1f),
+            DirtPathMapColor = cfg.Bind("5 - Map", "DirtPathMapColor", new Color(0.36f, 0.22f, 0.1f, 1f),
                 "Map colour for dirt paths.");
 
-            StoneRoadMapColor = cfg.Bind("5 - Map", "StoneRoadMapColor", new Color(0.2f, 0.2f, 0.22f, 1f),
+            StoneRoadMapColor = cfg.Bind("5 - Map", "StoneRoadMapColor", new Color(0.12f, 0.11f, 0.1f, 1f),
                 "Map colour for stone roads.");
 
-            MapDotSize = cfg.Bind("5 - Map", "MapDotSize", 4f,
-                new ConfigDescription("Diameter of path dots on the map, in screen pixels. Road dots are drawn 25% larger.",
-                    new AcceptableValueRange<float>(1f, 20f)));
-
-            MapDotSpacing = cfg.Bind("5 - Map", "MapDotSpacing", 9f,
-                new ConfigDescription("Rough gap between dots on screen, in pixels. Dots merge as you zoom out so the line stays readable.",
-                    new AcceptableValueRange<float>(3f, 50f)));
+            MapLineWidth = cfg.Bind("5 - Map", "MapLineWidth", 2f,
+                new ConfigDescription("Line width on the map, in screen pixels. Dash and dot lengths scale with it. Roads are drawn 1.5x wider.",
+                    new AcceptableValueRange<float>(1f, 8f)));
 
             MapRespectFog = cfg.Bind("5 - Map", "MapRespectFog", true,
                 "Only draw paths in areas you (or players sharing their map with you) have explored.");

@@ -77,16 +77,27 @@ namespace DesirePaths
             HeightmapBuffer.Clear();
             Heightmap.FindHeightmap(pos, radius + 1f, HeightmapBuffer);
 
-            int heightNodes = 0, paintNodes = 0, zones = 0;
+            var compilers = new List<TerrainComp>();
             foreach (Heightmap hm in HeightmapBuffer)
             {
                 if (hm == null)
                     continue;
                 TerrainComp tc = hm.GetAndCreateTerrainCompiler();
-                if (tc == null || tc.m_hmap == null)
-                    continue;
+                if (tc != null && tc.m_hmap != null)
+                    compilers.Add(tc);
+            }
 
-                int h = smooth ? SmoothHeights(tc, pos, shape.SmoothRadius, shape.SmoothPower) : 0;
+            // One average for the whole brush, in world height. Computing it per zone made a
+            // vertex on a zone seam move by different amounts in each zone and tore the seam.
+            bool haveAverage = false;
+            float average = 0f;
+            if (smooth)
+                haveAverage = WorldAverageHeight(compilers, pos, shape.SmoothRadius, out average);
+
+            int heightNodes = 0, paintNodes = 0, zones = 0;
+            foreach (TerrainComp tc in compilers)
+            {
+                int h = haveAverage ? SmoothHeights(tc, pos, shape.SmoothRadius, shape.SmoothPower, average) : 0;
                 int p = paint ? PaintNodes(tc, pos, paintRadius, color) : 0;
                 if (h + p == 0)
                     continue;
@@ -113,32 +124,47 @@ namespace DesirePaths
             return v;
         }
 
+        /// <summary>Average world height of every height node within the radius, across all zones.</summary>
+        private static bool WorldAverageHeight(List<TerrainComp> compilers, Vector3 center, float radius, out float average)
+        {
+            double sum = 0;
+            int count = 0;
+            foreach (TerrainComp tc in compilers)
+            {
+                Heightmap hm = tc.m_hmap;
+                int max = tc.m_width + 1;
+                IList<float> heights = hm.m_heights;
+                if (heights == null || heights.Count < max * max)
+                    continue;
+                float baseY = hm.transform.position.y;
+                for (int z = 0; z < max; z++)
+                for (int x = 0; x < max; x++)
+                {
+                    if (Utils.DistanceXZ(center, NodeToWorld(hm, x, z)) > radius)
+                        continue;
+                    sum += baseY + heights[z * max + x];
+                    count++;
+                }
+            }
+            average = count > 0 ? (float)(sum / count) : 0f;
+            return count > 0;
+        }
+
         /// <summary>
-        /// Pulls heights inside the radius toward their local average, strongest at the centre.
-        /// Returns the number of nodes changed.
+        /// Pulls heights inside the radius toward <paramref name="average"/> (a world height),
+        /// strongest at the centre. The change depends only on world position and height, so a
+        /// vertex shared by two zones moves the same in both. Returns the number of nodes changed.
         /// </summary>
-        private static int SmoothHeights(TerrainComp tc, Vector3 center, float radius, float power)
+        private static int SmoothHeights(TerrainComp tc, Vector3 center, float radius, float power, float average)
         {
             Heightmap hm = tc.m_hmap;
             int max = tc.m_width + 1;
-            if (tc.m_levelDelta == null || tc.m_levelDelta.Length != max * max || hm.m_heights == null)
+            IList<float> heights = hm.m_heights;
+            if (tc.m_levelDelta == null || tc.m_levelDelta.Length != max * max
+                || heights == null || heights.Count < max * max)
                 return 0;
 
-            // Average height of the area being smoothed.
-            float sum = 0f;
-            int count = 0;
-            for (int z = 0; z < max; z++)
-            for (int x = 0; x < max; x++)
-            {
-                if (Utils.DistanceXZ(center, NodeToWorld(hm, x, z)) > radius)
-                    continue;
-                sum += hm.m_heights[z * max + x];
-                count++;
-            }
-            if (count == 0)
-                return 0;
-            float average = sum / count;
-
+            float baseY = hm.transform.position.y;
             int changed = 0;
             for (int z = 0; z < max; z++)
             for (int x = 0; x < max; x++)
@@ -149,7 +175,7 @@ namespace DesirePaths
                 int i = z * max + x;
                 // Half-strength at the centre, fading to nothing at the edge; higher power = softer edge.
                 float weight = 0.5f * Mathf.Pow(1f - d, power / 3f);
-                float delta = weight * (average - hm.m_heights[i]);
+                float delta = weight * (average - (baseY + heights[i]));
                 tc.m_levelDelta[i] += delta + tc.m_smoothDelta[i];
                 tc.m_smoothDelta[i] = 0f;
                 tc.m_modifiedHeight[i] = tc.m_levelDelta[i] != 0f;
