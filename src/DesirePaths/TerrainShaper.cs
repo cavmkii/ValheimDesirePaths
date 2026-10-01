@@ -5,12 +5,14 @@ using UnityEngine;
 namespace DesirePaths
 {
     /// <summary>
-    /// Applies a wear stage to the ground using the game's own terrain operation, the same
-    /// mechanism the hoe uses. The operation is routed by the game to whoever owns the
-    /// zone's terrain data, so it is saved and synced like any hoe edit.
+    /// Applies a wear stage by editing the zone's terrain data directly: height deltas for
+    /// smoothing and the paint mask for dirt/paving. This mirrors how World Edit Commands edits
+    /// terrain in current Valheim. Spawning a TerrainOp does not work for custom settings, because
+    /// the game now sends terrain operations by prefab hash and looks the settings up in ZNetScene.
     ///
     /// Must run on a machine that has the terrain loaded, i.e. the client standing there.
     /// A dedicated server only generates zones transiently and has no heightmaps to edit.
+    /// Saving claims ownership of the zone's terrain data so the change is synced to everyone.
     /// </summary>
     internal static class TerrainShaper
     {
@@ -22,88 +24,186 @@ namespace DesirePaths
             Cultivated,
         }
 
-        private static readonly List<Piece> PieceBuffer = new List<Piece>();
+        private static readonly Color Dirt = Color.red;
+        private static readonly Color Paved = Color.blue;
 
-        public static void Apply(Vector3 pos, WearStage stage, ShapeSettings shape)
+        private static readonly List<Piece> PieceBuffer = new List<Piece>();
+        private static readonly List<Heightmap> HeightmapBuffer = new List<Heightmap>();
+
+        /// <summary>
+        /// Applies a stage at <paramref name="pos"/>. Returns true only if terrain was changed.
+        /// Every outcome is logged so failures are visible without debug logging.
+        /// </summary>
+        public static bool Apply(Vector3 pos, WearStage stage, ShapeSettings shape)
         {
             if (stage == WearStage.Untouched)
-                return;
-
-            Heightmap hm = Heightmap.FindHeightmap(pos);
-            if (hm == null)
-            {
-                Plugin.Debug($"No terrain loaded at {pos}; skipping {stage}.");
-                return;
-            }
+                return false;
 
             Surface surface = ReadSurface(pos);
-            if (shape.ProtectCultivated && (surface == Surface.Cultivated || hm.IsCultivated(pos)))
+            // Only painted data is trusted; natural ground is never "cultivated".
+            if (shape.ProtectCultivated && surface == Surface.Cultivated)
             {
-                Plugin.Debug($"Cultivated ground at {pos}; leaving it alone.");
-                return;
+                Plugin.Log.LogInfo($"{stage} at {pos:F1} skipped: cultivated ground.");
+                return false;
             }
 
-            var settings = new TerrainOp.Settings();
-
-            bool smooth = shape.SmoothRadius > 0f && !BuildingsNearby(pos, shape);
-            if (smooth)
-            {
-                settings.m_smooth = true;
-                settings.m_smoothRadius = shape.SmoothRadius;
-                settings.m_smoothPower = shape.SmoothPower;
-            }
+            bool buildingsNearby = BuildingsNearby(pos, shape);
+            bool smooth = shape.SmoothRadius > 0f && !buildingsNearby;
 
             // Never downgrade: a hand-paved road stays paved when it reaches the dirt stage.
+            bool paint = false;
+            Color color = default;
+            float paintRadius = 0f;
             if (stage == WearStage.DirtPath && surface == Surface.Natural)
             {
-                settings.m_paintCleared = true;
-                settings.m_paintType = TerrainModifier.PaintType.Dirt;
-                settings.m_paintRadius = shape.DirtPathRadius;
-                settings.m_paintHeightCheck = false;
+                paint = true;
+                color = Dirt;
+                paintRadius = shape.DirtPathRadius;
             }
             else if (stage == WearStage.StoneRoad && surface != Surface.Paved)
             {
-                settings.m_paintCleared = true;
-                settings.m_paintType = TerrainModifier.PaintType.Paved;
-                settings.m_paintRadius = shape.StoneRoadRadius;
-                settings.m_paintHeightCheck = false;
+                paint = true;
+                color = Paved;
+                paintRadius = shape.StoneRoadRadius;
             }
 
-            if (!settings.m_smooth && !settings.m_paintCleared)
+            if (!smooth && !paint)
             {
-                Plugin.Debug($"Nothing to do for {stage} at {pos} (surface {surface}, smoothing {(smooth ? "on" : "blocked")}).");
-                return;
+                Plugin.Log.LogInfo($"{stage} at {pos:F1} skipped: nothing to do (surface {surface}, buildings nearby {buildingsNearby}).");
+                return false;
             }
 
-            Run(pos, settings);
-            Plugin.Debug($"Applied {stage} at {pos} (smooth={settings.m_smooth}, paint={(settings.m_paintCleared ? settings.m_paintType.ToString() : "none")}).");
+            float radius = Mathf.Max(smooth ? shape.SmoothRadius : 0f, paint ? paintRadius : 0f);
+            HeightmapBuffer.Clear();
+            Heightmap.FindHeightmap(pos, radius + 1f, HeightmapBuffer);
+
+            int heightNodes = 0, paintNodes = 0, zones = 0;
+            foreach (Heightmap hm in HeightmapBuffer)
+            {
+                if (hm == null)
+                    continue;
+                TerrainComp tc = hm.GetAndCreateTerrainCompiler();
+                if (tc == null || tc.m_hmap == null)
+                    continue;
+
+                int h = smooth ? SmoothHeights(tc, pos, shape.SmoothRadius, shape.SmoothPower) : 0;
+                int p = paint ? PaintNodes(tc, pos, paintRadius, color) : 0;
+                if (h + p == 0)
+                    continue;
+
+                Save(tc);
+                heightNodes += h;
+                paintNodes += p;
+                zones++;
+            }
+            HeightmapBuffer.Clear();
+
+            if (paint)
+                ClutterSystem.instance?.ResetGrass(pos, paintRadius + 0.5f);
+
+            Plugin.Log.LogInfo($"{stage} at {pos:F1}: smoothed {heightNodes} height nodes, painted {paintNodes} paint nodes{(paint ? " " + (color == Dirt ? "dirt" : "paved") : "")} in {zones} zone(s); surface was {surface}, buildings nearby {buildingsNearby}.");
+            return zones > 0;
+        }
+
+        private static Vector3 NodeToWorld(Heightmap hm, int x, int z)
+        {
+            Vector3 v = hm.transform.position;
+            v.x += (x - hm.m_width / 2) * hm.m_scale;
+            v.z += (z - hm.m_width / 2) * hm.m_scale;
+            return v;
         }
 
         /// <summary>
-        /// Spawns a throwaway TerrainOp. Its Awake finds the overlapping heightmaps, sends the
-        /// operation to each zone's terrain compiler and destroys itself — exactly what happens
-        /// when a hoe piece is placed, minus the placement effects.
+        /// Pulls heights inside the radius toward their local average, strongest at the centre.
+        /// Returns the number of nodes changed.
         /// </summary>
-        private static void Run(Vector3 pos, TerrainOp.Settings settings)
+        private static int SmoothHeights(TerrainComp tc, Vector3 center, float radius, float power)
         {
-            var go = new GameObject("DesirePaths_TerrainOp");
-            go.SetActive(false);
-            go.transform.position = pos;
+            Heightmap hm = tc.m_hmap;
+            int max = tc.m_width + 1;
+            if (tc.m_levelDelta == null || tc.m_levelDelta.Length != max * max || hm.m_heights == null)
+                return 0;
 
-            var op = go.AddComponent<TerrainOp>();
-            op.m_settings = settings;
-            op.m_onPlacedEffect = new EffectList();
-            op.m_spawnOnPlaced = null;
+            // Average height of the area being smoothed.
+            float sum = 0f;
+            int count = 0;
+            for (int z = 0; z < max; z++)
+            for (int x = 0; x < max; x++)
+            {
+                if (Utils.DistanceXZ(center, NodeToWorld(hm, x, z)) > radius)
+                    continue;
+                sum += hm.m_heights[z * max + x];
+                count++;
+            }
+            if (count == 0)
+                return 0;
+            float average = sum / count;
 
-            try
+            int changed = 0;
+            for (int z = 0; z < max; z++)
+            for (int x = 0; x < max; x++)
             {
-                go.SetActive(true); // Awake runs here and applies the operation.
+                float d = Utils.DistanceXZ(center, NodeToWorld(hm, x, z)) / radius;
+                if (d > 1f)
+                    continue;
+                int i = z * max + x;
+                // Half-strength at the centre, fading to nothing at the edge; higher power = softer edge.
+                float weight = 0.5f * Mathf.Pow(1f - d, power / 3f);
+                float delta = weight * (average - hm.m_heights[i]);
+                tc.m_levelDelta[i] += delta + tc.m_smoothDelta[i];
+                tc.m_smoothDelta[i] = 0f;
+                tc.m_modifiedHeight[i] = tc.m_levelDelta[i] != 0f;
+                changed++;
             }
-            finally
+            return changed;
+        }
+
+        /// <summary>Blends the paint mask toward <paramref name="color"/>. Returns nodes changed.</summary>
+        private static int PaintNodes(TerrainComp tc, Vector3 center, float radius, Color color)
+        {
+            Heightmap hm = tc.m_hmap;
+            int max = tc.m_width + 1;
+            if (tc.m_paintMask == null || tc.m_paintMask.Length != max * max)
             {
-                if (go != null)
-                    UnityEngine.Object.Destroy(go);
+                Plugin.Log.LogWarning($"Unexpected paint grid size {tc.m_paintMask?.Length ?? 0} (expected {max * max}); not painting.");
+                return 0;
             }
+
+            bool ashlands = WorldGenerator.IsAshlands(center.x, center.z);
+            int changed = 0;
+            for (int z = 0; z < max; z++)
+            for (int x = 0; x < max; x++)
+            {
+                float d = Utils.DistanceXZ(center, NodeToWorld(hm, x, z)) / radius;
+                if (d > 1f)
+                    continue;
+                int i = z * max + x;
+
+                Color source = tc.m_modifiedPaint[i] ? tc.m_paintMask[i] : Heightmap.m_paintMaskNothing;
+                // Ashlands stores lava in alpha and treats unmodified ground as alpha 0.
+                if (ashlands && !tc.m_modifiedPaint[i])
+                    source.a = 0f;
+
+                Color target = color;
+                target.a = source.a; // keep lava/biome data untouched
+
+                // Full strength over the inner 70%, soft edge outside it.
+                float strength = Mathf.Clamp01((1f - d) / 0.3f);
+                tc.m_paintMask[i] = Color.Lerp(source, target, strength);
+                tc.m_modifiedPaint[i] = true;
+                changed++;
+            }
+            return changed;
+        }
+
+        private static void Save(TerrainComp tc)
+        {
+            tc.GetComponent<ZNetView>()?.ClaimOwnership();
+            tc.m_operations++;
+            tc.m_lastOpPoint = Vector3.zero;
+            tc.m_lastOpRadius = 0f;
+            tc.Save();
+            tc.m_hmap.Poke(false);
         }
 
         private static bool BuildingsNearby(Vector3 pos, ShapeSettings shape)
@@ -132,16 +232,15 @@ namespace DesirePaths
                     return Surface.Natural;
 
                 Heightmap hm = tc.m_hmap;
-                // The paint grid has been width^2 in some game versions and (width+1)^2 in others.
-                int stride = Mathf.RoundToInt(Mathf.Sqrt(tc.m_paintMask.Length));
-                if (stride <= 0 || stride * stride != tc.m_paintMask.Length)
+                int max = tc.m_width + 1;
+                if (tc.m_paintMask.Length != max * max)
                     return Surface.Natural;
 
                 Vector3 rel = pos - hm.transform.position;
-                int x = Mathf.Clamp(Mathf.FloorToInt(rel.x / hm.m_scale + hm.m_width / 2f), 0, stride - 1);
-                int z = Mathf.Clamp(Mathf.FloorToInt(rel.z / hm.m_scale + hm.m_width / 2f), 0, stride - 1);
-                int index = z * stride + x;
-                if (index >= tc.m_modifiedPaint.Length || !tc.m_modifiedPaint[index])
+                int x = Mathf.Clamp(Mathf.RoundToInt(rel.x / hm.m_scale) + hm.m_width / 2, 0, max - 1);
+                int z = Mathf.Clamp(Mathf.RoundToInt(rel.z / hm.m_scale) + hm.m_width / 2, 0, max - 1);
+                int index = z * max + x;
+                if (!tc.m_modifiedPaint[index])
                     return Surface.Natural;
 
                 Color c = tc.m_paintMask[index];

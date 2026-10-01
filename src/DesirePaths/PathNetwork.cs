@@ -140,8 +140,8 @@ namespace DesirePaths
 
             if (applyLocally)
             {
-                TerrainShaper.Apply(pos, advanced, ShapeSettings.FromConfig());
-                Plugin.AnnounceStage(advanced);
+                if (TerrainShaper.Apply(pos, advanced, ShapeSettings.FromConfig()))
+                    Plugin.AnnounceStage(advanced);
             }
             else
             {
@@ -223,8 +223,8 @@ namespace DesirePaths
             var stage = (WearStage)pkg.ReadInt();
             ShapeSettings shape = ShapeSettings.Read(pkg);
 
-            TerrainShaper.Apply(pos, stage, shape);
-            Plugin.AnnounceStage(stage);
+            if (TerrainShaper.Apply(pos, stage, shape))
+                Plugin.AnnounceStage(stage);
         }
     }
 }
