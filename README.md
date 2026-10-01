@@ -15,6 +15,12 @@ Each stage needs a configurable number of steps. Routes you only walk now and th
 - When a cell's count passes a threshold, the mod edits that zone's terrain data directly: it pulls heights toward the local average for smoothing, and paints the ground dirt or paved. It then saves the zone, which syncs the change to other players like any hoe edit. Edits don't grow the save, because Valheim stores terrain changes per vertex, not per operation. (Spawning a `TerrainOp` with custom settings doesn't work in current Valheim, which sends terrain operations by prefab and looks the settings up in its registry.)
 - Stages are never undone. Decay only lowers the step count toward the *next* stage.
 
+### Map
+
+Dirt paths and stone roads show on the minimap and the large map. The game builds the map image from world generation and never adds terrain edits to it, not even hoe roads, so the mod colours the map itself. One map pixel covers several metres, so a path shows as a trail of brown pixels and a road as grey. Forest shading is cleared on those pixels so trails stay visible through woods. Unexplored areas stay hidden as usual. On a server, joining players receive the existing roads, and new roads are sent to everyone as they form.
+
+Only desire paths are drawn, not roads made with the hoe.
+
 ### Safeguards
 
 - **Buildings.** Smoothing changes ground height, and that can leave building pieces without support. If any built piece is within `SmoothRadius + BuildingClearance`, the mod skips smoothing and only paints.
@@ -48,6 +54,8 @@ Step data is saved in `BepInEx/config/DesirePaths/`, one file per world. It's wr
 | `BuildingClearance` | 2 m | -1 smooths even next to buildings. |
 | `ProtectCultivated` | true | |
 | `ExcludedBiomes` | Ocean | Comma-separated, e.g. `Ocean, AshLands`. |
+| `ShowOnMap` | true | Draw paths and roads on the map. |
+| `DirtPathMapColor` / `StoneRoadMapColor` | brown / grey | Colours on the map. Changes apply right away. |
 | `ShowStageMessages` | false | Shows a message in the corner when ground under you reaches a new stage. |
 | `VerboseLogging` | false | |
 
@@ -70,9 +78,9 @@ Add `-p:PackageZip=true` to also write `dist/DesirePaths-<version>.zip`, with th
 
 1. In Vortex, manage Valheim and install **BepInExPack for Valheim** from Nexus. Launch the game once so BepInEx sets itself up, then quit.
 2. Build: `dotnet build src/DesirePaths/DesirePaths.csproj -c Release -p:ValheimDir="<Valheim folder>" -p:PackageZip=true`
-3. Drag `dist/DesirePaths-0.1.1.zip` onto Vortex's Mods page (or use *Install From File*). Enable it and click *Deploy*.
+3. Drag `dist/DesirePaths-0.2.0.zip` onto Vortex's Mods page (or use *Install From File*). Enable it and click *Deploy*.
 4. Check that `<Valheim folder>/BepInEx/plugins/` now contains `DesirePaths.dll`, either directly or in a subfolder. If it's somewhere else, open the mod in Vortex, set its *Mod Type* to the BepInEx plugin type, and deploy again.
-5. Launch the game. `BepInEx/LogOutput.log` should contain `Desire Paths 0.1.1 loaded.`, and `BepInEx/config/cavmkii.DesirePaths.cfg` should exist.
+5. Launch the game. `BepInEx/LogOutput.log` should contain `Desire Paths 0.2.0 loaded.`, and `BepInEx/config/cavmkii.DesirePaths.cfg` should exist.
 
 When you rebuild, install the new zip over the old one in Vortex (choose *Replace*) and deploy again.
 

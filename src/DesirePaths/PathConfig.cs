@@ -1,4 +1,5 @@
 using BepInEx.Configuration;
+using UnityEngine;
 
 namespace DesirePaths
 {
@@ -27,6 +28,10 @@ namespace DesirePaths
         public static ConfigEntry<float> BuildingClearance;
         public static ConfigEntry<bool> ProtectCultivated;
         public static ConfigEntry<Heightmap.Biome> ExcludedBiomes;
+
+        public static ConfigEntry<bool> ShowOnMap;
+        public static ConfigEntry<Color> DirtPathMapColor;
+        public static ConfigEntry<Color> StoneRoadMapColor;
 
         public static ConfigEntry<bool> ShowStageMessages;
         public static ConfigEntry<bool> VerboseLogging;
@@ -93,10 +98,23 @@ namespace DesirePaths
             ExcludedBiomes = cfg.Bind("4 - Terrain", "ExcludedBiomes", Heightmap.Biome.Ocean,
                 "Biomes where steps are not counted. Combine with commas, e.g. \"Ocean, AshLands\".");
 
-            ShowStageMessages = cfg.Bind("5 - Debug", "ShowStageMessages", false,
+            ShowOnMap = cfg.Bind("5 - Map", "ShowOnMap", true,
+                "Draw dirt paths and stone roads on the minimap and the large map. Each map pixel covers several metres, so paths show as a trail of coloured pixels.");
+
+            DirtPathMapColor = cfg.Bind("5 - Map", "DirtPathMapColor", new Color(0.55f, 0.42f, 0.27f, 1f),
+                "Map colour for dirt paths.");
+
+            StoneRoadMapColor = cfg.Bind("5 - Map", "StoneRoadMapColor", new Color(0.62f, 0.62f, 0.6f, 1f),
+                "Map colour for stone roads.");
+
+            ShowOnMap.SettingChanged += (_, __) => MapRoads.RequestRepaint();
+            DirtPathMapColor.SettingChanged += (_, __) => MapRoads.RequestRepaint();
+            StoneRoadMapColor.SettingChanged += (_, __) => MapRoads.RequestRepaint();
+
+            ShowStageMessages = cfg.Bind("6 - Debug", "ShowStageMessages", false,
                 "Show a message in the corner of the screen when ground under you wears to a new stage.");
 
-            VerboseLogging = cfg.Bind("5 - Debug", "VerboseLogging", false,
+            VerboseLogging = cfg.Bind("6 - Debug", "VerboseLogging", false,
                 "Log every counted step and stage change to the BepInEx console.");
         }
 

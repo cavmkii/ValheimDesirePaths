@@ -11,7 +11,7 @@ namespace DesirePaths
     {
         public const string Guid = "cavmkii.DesirePaths";
         public const string Name = "Desire Paths";
-        public const string Version = "0.1.1";
+        public const string Version = "0.2.0";
 
         private const float AutosaveInterval = 120f;
 
@@ -42,6 +42,8 @@ namespace DesirePaths
 
             if (PathConfig.Enabled.Value)
                 _tracker.Tick();
+
+            MapRoads.Tick();
         }
 
         /// <summary>Loads, swaps, autosaves and unloads the step store as sessions come and go.</summary>
@@ -61,6 +63,8 @@ namespace DesirePaths
             if (Store == null && wanted != null)
             {
                 Store = WearStore.Load(wanted);
+                MapRoads.Clear();
+                Store.ForEachRoad(MapRoads.Set);
                 Log.LogInfo($"Using step data {wanted} ({Store.Count} cells).");
                 _nextAutosave = Time.time + AutosaveInterval;
             }

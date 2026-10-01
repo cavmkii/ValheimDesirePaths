@@ -1,6 +1,6 @@
 {
   "name": "DesirePaths",
-  "version_number": "0.1.1",
+  "version_number": "0.2.0",
   "website_url": "https://github.com/cavmkii/ValheimDesirePaths",
   "description": "Ground wears into paths where people actually walk: smoothed, then a dirt path, then a stone road.",
   "dependencies": [
