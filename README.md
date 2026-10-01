@@ -10,7 +10,7 @@ A BepInEx mod for Valheim. Ground that gets walked on often wears in over time:
 
 The terrain paint is a blend, not on or off: red is dirt and blue is paving, and partial amounts mix the textures. The early stages paint partial dirt in patches, using noise, so they look scuffed rather than smeared. The farmland (green) channel is never touched.
 
-Each stage needs a configurable number of steps. Routes you only walk now and then fade out of the count, so only the routes you keep using turn into roads.
+Each stage needs a configurable number of steps on top of the stage before it. Routes you only walk now and then fade out of the count, so only the routes you keep using turn into roads.
 
 ## How it works
 
@@ -49,11 +49,11 @@ Step data is saved in `BepInEx/config/DesirePaths/`, one file per world. It's wr
 | `Enabled` | true | |
 | `CellSize` | 1.0 m | Smaller cells give narrower trails but need more traffic to wear in. |
 | `SameCellCooldown` | 5 s | |
-| `StepsToTrample` | 15 | 0 skips the stage. |
-| `StepsToWear` | 40 | 0 skips the stage. |
-| `StepsToDirtPath` | 100 | 0 skips the stage. |
-| `StepsToGravel` | 250 | 0 skips the stage. |
-| `StepsToStoneRoad` | 500 | 0 skips the stage. |
+| `StepsToTrampled` | 15 | Steps from untouched ground to Trampled. |
+| `StepsTrampledToWorn` | 25 | Further steps to Worn (40 total). |
+| `StepsWornToDirtPath` | 60 | Further steps to Dirt path (100 total). |
+| `StepsDirtPathToGravel` | 150 | Further steps to Gravel (250 total). |
+| `StepsGravelToStoneRoad` | 250 | Further steps to Stone road (500 total). |
 | `DecayPerDay` | 2 | Steps forgotten per in-game day without traffic. 0 turns decay off. |
 | `SmoothRadius` / `SmoothPower` | 1.5 m / 3 | |
 | `DirtPathRadius` / `StoneRoadRadius` | 1.0 m / 1.0 m | Painted radius around each worn cell. Neighbouring cells overlap into a continuous strip. |
@@ -86,9 +86,9 @@ Add `-p:PackageZip=true` to also write `dist/DesirePaths-<version>.zip`, with th
 
 1. In Vortex, manage Valheim and install **BepInExPack for Valheim** from Nexus. Launch the game once so BepInEx sets itself up, then quit.
 2. Build: `dotnet build src/DesirePaths/DesirePaths.csproj -c Release -p:ValheimDir="<Valheim folder>" -p:PackageZip=true`
-3. Drag `dist/DesirePaths-0.3.0.zip` onto Vortex's Mods page (or use *Install From File*). Enable it and click *Deploy*.
+3. Drag `dist/DesirePaths-0.3.1.zip` onto Vortex's Mods page (or use *Install From File*). Enable it and click *Deploy*.
 4. Check that `<Valheim folder>/BepInEx/plugins/` now contains `DesirePaths.dll`, either directly or in a subfolder. If it's somewhere else, open the mod in Vortex, set its *Mod Type* to the BepInEx plugin type, and deploy again.
-5. Launch the game. `BepInEx/LogOutput.log` should contain `Desire Paths 0.3.0 loaded.`, and `BepInEx/config/cavmkii.DesirePaths.cfg` should exist.
+5. Launch the game. `BepInEx/LogOutput.log` should contain `Desire Paths 0.3.1 loaded.`, and `BepInEx/config/cavmkii.DesirePaths.cfg` should exist.
 
 When you rebuild, install the new zip over the old one in Vortex (choose *Replace*) and deploy again.
 

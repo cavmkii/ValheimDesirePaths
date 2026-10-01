@@ -133,7 +133,7 @@ namespace DesirePaths
                 return;
 
             double now = ZNet.instance.GetTimeSeconds();
-            WearStage advanced = store.RecordStep(pos, now, out float steps);
+            WearStage advanced = store.RecordStep(pos, now, out float steps, out WearStage previous);
 
             if (PathConfig.VerboseLogging.Value)
                 Plugin.Log.LogInfo($"Step at {pos:F1} from {(applyLocally ? "local player" : sender.ToString())}: {steps:F1} steps");
@@ -149,18 +149,28 @@ namespace DesirePaths
                 BroadcastRoad(pos, advanced);
             }
 
-            if (applyLocally)
+            // Apply every enabled stage passed through, in order, so a cell that jumps several
+            // stages at once (e.g. after a config change) still gets the in-between looks.
+            int[] thresholds = PathConfig.Thresholds();
+            ShapeSettings shape = ShapeSettings.FromConfig();
+            for (var stage = previous + 1; stage <= advanced; stage++)
             {
-                if (TerrainShaper.Apply(pos, advanced, ShapeSettings.FromConfig()))
-                    Plugin.AnnounceStage(advanced);
-            }
-            else
-            {
-                var pkg = new ZPackage();
-                pkg.Write(pos);
-                pkg.Write((int)advanced);
-                ShapeSettings.FromConfig().Write(pkg);
-                ZRoutedRpc.instance.InvokeRoutedRPC(sender, RpcApply, pkg);
+                if (!WearStore.IsEnabled(thresholds, (int)stage))
+                    continue;
+
+                if (applyLocally)
+                {
+                    if (TerrainShaper.Apply(pos, stage, shape))
+                        Plugin.AnnounceStage(stage);
+                }
+                else
+                {
+                    var pkg = new ZPackage();
+                    pkg.Write(pos);
+                    pkg.Write((int)stage);
+                    shape.Write(pkg);
+                    ZRoutedRpc.instance.InvokeRoutedRPC(sender, RpcApply, pkg);
+                }
             }
         }
 
