@@ -15,8 +15,10 @@ namespace DesirePaths
         public static ConfigEntry<float> CellSize;
         public static ConfigEntry<float> SameCellCooldown;
 
-        public static ConfigEntry<int> StepsToSmooth;
+        public static ConfigEntry<int> StepsToTrample;
+        public static ConfigEntry<int> StepsToWear;
         public static ConfigEntry<int> StepsToDirtPath;
+        public static ConfigEntry<int> StepsToGravel;
         public static ConfigEntry<int> StepsToStoneRoad;
 
         public static ConfigEntry<float> DecayPerDay;
@@ -53,19 +55,24 @@ namespace DesirePaths
                     "Seconds before the same player can add another step to the same cell. Stops standing still or circling in place from wearing a path.",
                     new AcceptableValueRange<float>(0f, 600f)));
 
-            StepsToSmooth = cfg.Bind("2 - Thresholds", "StepsToSmooth", 30,
-                new ConfigDescription(
-                    "Steps through a cell before the ground there is smoothed. 0 skips this stage.",
+            StepsToTrample = cfg.Bind("2 - Thresholds", "StepsToTrample", 15,
+                new ConfigDescription("Steps through a cell before faint brown patches show through the grass and the ground is lightly smoothed. 0 skips this stage.",
+                    new AcceptableValueRange<int>(0, 100000)));
+
+            StepsToWear = cfg.Bind("2 - Thresholds", "StepsToWear", 40,
+                new ConfigDescription("Steps before the patches grow and darken into a worn trail. Grass still grows. 0 skips this stage.",
                     new AcceptableValueRange<int>(0, 100000)));
 
             StepsToDirtPath = cfg.Bind("2 - Thresholds", "StepsToDirtPath", 100,
-                new ConfigDescription(
-                    "Steps before the cell becomes a dirt path, as if the hoe's path tool was used. 0 skips this stage.",
+                new ConfigDescription("Steps before the cell becomes bare dirt, as if the hoe's path tool was used. 0 skips this stage.",
                     new AcceptableValueRange<int>(0, 100000)));
 
-            StepsToStoneRoad = cfg.Bind("2 - Thresholds", "StepsToStoneRoad", 400,
-                new ConfigDescription(
-                    "Steps before the cell becomes a paved stone road. 0 skips this stage.",
+            StepsToGravel = cfg.Bind("2 - Thresholds", "StepsToGravel", 250,
+                new ConfigDescription("Steps before paving starts showing through the dirt in patches. 0 skips this stage.",
+                    new AcceptableValueRange<int>(0, 100000)));
+
+            StepsToStoneRoad = cfg.Bind("2 - Thresholds", "StepsToStoneRoad", 500,
+                new ConfigDescription("Steps before the cell becomes a fully paved stone road. 0 skips this stage.",
                     new AcceptableValueRange<int>(0, 100000)));
 
             DecayPerDay = cfg.Bind("3 - Decay", "DecayPerDay", 2f,
@@ -82,11 +89,11 @@ namespace DesirePaths
                     new AcceptableValueRange<float>(0.5f, 10f)));
 
             DirtPathRadius = cfg.Bind("4 - Terrain", "DirtPathRadius", 1.0f,
-                new ConfigDescription("Radius in metres of the dirt painted when a cell becomes a path.",
+                new ConfigDescription("Radius in metres of the worn area for the trampled, worn, dirt and gravel stages.",
                     new AcceptableValueRange<float>(0.25f, 6f)));
 
             StoneRoadRadius = cfg.Bind("4 - Terrain", "StoneRoadRadius", 1.0f,
-                new ConfigDescription("Radius in metres of the paving painted when a cell becomes a road.",
+                new ConfigDescription("Radius in metres of the paving when a cell becomes a stone road.",
                     new AcceptableValueRange<float>(0.25f, 6f)));
 
             BuildingClearance = cfg.Bind("4 - Terrain", "BuildingClearance", 2f,
@@ -125,6 +132,6 @@ namespace DesirePaths
         }
 
         /// <summary>Thresholds indexed by stage (1..3). A threshold of 0 disables that stage.</summary>
-        public static int[] Thresholds() => new[] { 0, StepsToSmooth.Value, StepsToDirtPath.Value, StepsToStoneRoad.Value };
+        public static int[] Thresholds() => new[] { 0, StepsToTrample.Value, StepsToWear.Value, StepsToDirtPath.Value, StepsToGravel.Value, StepsToStoneRoad.Value };
     }
 }

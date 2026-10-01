@@ -2,9 +2,13 @@
 
 A BepInEx mod for Valheim. Ground that gets walked on often wears in over time:
 
-1. **Smoothed.** Bumps and lumps along the route get evened out.
-2. **Dirt path.** The ground is painted the way the hoe's path tool paints it, and the grass goes away.
-3. **Stone road.** The path gets paved.
+1. **Trampled.** Faint brown patches show through the grass, and bumps get lightly smoothed.
+2. **Worn.** The patches grow and darken into a broken trail. Grass still grows.
+3. **Dirt path.** Bare dirt, the same as the hoe's path tool. The ground is smoothed again.
+4. **Gravel.** Stone starts showing through the dirt in patches.
+5. **Stone road.** Fully paved, and smoothed once more.
+
+The terrain paint is a blend, not on or off: red is dirt and blue is paving, and partial amounts mix the textures. The early stages paint partial dirt in patches, using noise, so they look scuffed rather than smeared. The farmland (green) channel is never touched.
 
 Each stage needs a configurable number of steps. Routes you only walk now and then fade out of the count, so only the routes you keep using turn into roads.
 
@@ -45,9 +49,11 @@ Step data is saved in `BepInEx/config/DesirePaths/`, one file per world. It's wr
 | `Enabled` | true | |
 | `CellSize` | 1.0 m | Smaller cells give narrower trails but need more traffic to wear in. |
 | `SameCellCooldown` | 5 s | |
-| `StepsToSmooth` | 30 | 0 skips the stage. |
+| `StepsToTrample` | 15 | 0 skips the stage. |
+| `StepsToWear` | 40 | 0 skips the stage. |
 | `StepsToDirtPath` | 100 | 0 skips the stage. |
-| `StepsToStoneRoad` | 400 | 0 skips the stage. |
+| `StepsToGravel` | 250 | 0 skips the stage. |
+| `StepsToStoneRoad` | 500 | 0 skips the stage. |
 | `DecayPerDay` | 2 | Steps forgotten per in-game day without traffic. 0 turns decay off. |
 | `SmoothRadius` / `SmoothPower` | 1.5 m / 3 | |
 | `DirtPathRadius` / `StoneRoadRadius` | 1.0 m / 1.0 m | Painted radius around each worn cell. Neighbouring cells overlap into a continuous strip. |
@@ -61,7 +67,7 @@ Step data is saved in `BepInEx/config/DesirePaths/`, one file per world. It's wr
 | `ShowStageMessages` | false | Shows a message in the corner when ground under you reaches a new stage. |
 | `VerboseLogging` | false | |
 
-A rough guide to the thresholds: a cell on the route between your bed and your workbench might get 10–20 steps a day. With the defaults, that route smooths in a couple of days, becomes a dirt path in about a week, and becomes a road after a few weeks of play.
+A rough guide to the thresholds: a cell on the route between your bed and your workbench might get 10–20 steps a day. With the defaults, that route looks trampled after a day or two, becomes a dirt path in about a week, and becomes a stone road after a month or so of play.
 
 ## Building
 
@@ -80,9 +86,9 @@ Add `-p:PackageZip=true` to also write `dist/DesirePaths-<version>.zip`, with th
 
 1. In Vortex, manage Valheim and install **BepInExPack for Valheim** from Nexus. Launch the game once so BepInEx sets itself up, then quit.
 2. Build: `dotnet build src/DesirePaths/DesirePaths.csproj -c Release -p:ValheimDir="<Valheim folder>" -p:PackageZip=true`
-3. Drag `dist/DesirePaths-0.2.2.zip` onto Vortex's Mods page (or use *Install From File*). Enable it and click *Deploy*.
+3. Drag `dist/DesirePaths-0.3.0.zip` onto Vortex's Mods page (or use *Install From File*). Enable it and click *Deploy*.
 4. Check that `<Valheim folder>/BepInEx/plugins/` now contains `DesirePaths.dll`, either directly or in a subfolder. If it's somewhere else, open the mod in Vortex, set its *Mod Type* to the BepInEx plugin type, and deploy again.
-5. Launch the game. `BepInEx/LogOutput.log` should contain `Desire Paths 0.2.2 loaded.`, and `BepInEx/config/cavmkii.DesirePaths.cfg` should exist.
+5. Launch the game. `BepInEx/LogOutput.log` should contain `Desire Paths 0.3.0 loaded.`, and `BepInEx/config/cavmkii.DesirePaths.cfg` should exist.
 
 When you rebuild, install the new zip over the old one in Vortex (choose *Replace*) and deploy again.
 

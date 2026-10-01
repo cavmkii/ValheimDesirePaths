@@ -12,7 +12,7 @@ namespace DesirePaths
     internal sealed class WearStore
     {
         private const uint Magic = 0x48545044; // "DPTH"
-        private const int FormatVersion = 1;
+        private const int FormatVersion = 2;
 
         private struct Cell
         {
@@ -106,6 +106,18 @@ namespace DesirePaths
             return stage;
         }
 
+        /// <summary>Version 1 had three stages: 1 smoothed, 2 dirt path, 3 stone road.</summary>
+        private static WearStage MigrateV1(byte old)
+        {
+            switch (old)
+            {
+                case 1: return WearStage.Trampled;
+                case 2: return WearStage.DirtPath;
+                case 3: return WearStage.StoneRoad;
+                default: return WearStage.Untouched;
+            }
+        }
+
         public static WearStore Load(string path)
         {
             var store = new WearStore(path);
@@ -119,17 +131,18 @@ namespace DesirePaths
                     if (reader.ReadUInt32() != Magic)
                         throw new InvalidDataException("not a DesirePaths file");
                     int version = reader.ReadInt32();
-                    if (version != FormatVersion)
+                    if (version != 1 && version != FormatVersion)
                         throw new InvalidDataException($"unsupported format version {version}");
 
                     int count = reader.ReadInt32();
+                    store._dirty = version != FormatVersion;
                     for (int i = 0; i < count; i++)
                     {
                         long key = reader.ReadInt64();
                         store._cells[key] = new Cell
                         {
                             Steps = reader.ReadSingle(),
-                            Stage = (WearStage)reader.ReadByte(),
+                            Stage = version == 1 ? MigrateV1(reader.ReadByte()) : (WearStage)reader.ReadByte(),
                             LastStep = reader.ReadDouble(),
                         };
                     }

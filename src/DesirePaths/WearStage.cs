@@ -3,9 +3,11 @@ namespace DesirePaths
     internal enum WearStage : byte
     {
         Untouched = 0,
-        Smoothed = 1,
-        DirtPath = 2,
-        StoneRoad = 3,
+        Trampled = 1,  // faint brown patches through the grass, light smoothing
+        Worn = 2,      // larger, browner patches; grass still grows
+        DirtPath = 3,  // full dirt, like the hoe's path tool
+        Gravel = 4,    // paving showing through the dirt in patches
+        StoneRoad = 5, // fully paved
     }
 
     /// <summary>

@@ -5,7 +5,7 @@
     <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>DesirePaths</AssemblyName>
     <RootNamespace>DesirePaths</RootNamespace>
-    <Version>0.2.2</Version>
+    <Version>0.3.0</Version>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <!-- Lets the publicized game assembly be used without runtime access checks. -->

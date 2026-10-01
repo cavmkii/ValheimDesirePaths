@@ -11,7 +11,7 @@ namespace DesirePaths
     {
         public const string Guid = "cavmkii.DesirePaths";
         public const string Name = "Desire Paths";
-        public const string Version = "0.2.2";
+        public const string Version = "0.3.0";
 
         private const float AutosaveInterval = 120f;
 
@@ -121,8 +121,10 @@ namespace DesirePaths
             string text;
             switch (stage)
             {
-                case WearStage.Smoothed: text = "The ground here is wearing smooth"; break;
+                case WearStage.Trampled: text = "The grass here is getting trampled"; break;
+                case WearStage.Worn: text = "A trail is wearing in"; break;
                 case WearStage.DirtPath: text = "A path has worn into the ground"; break;
+                case WearStage.Gravel: text = "Stones are showing through the path"; break;
                 case WearStage.StoneRoad: text = "This path has become a road"; break;
                 default: return;
             }
