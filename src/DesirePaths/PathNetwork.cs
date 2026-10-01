@@ -12,7 +12,7 @@ namespace DesirePaths
     /// </summary>
     internal static class PathNetwork
     {
-        public const int ProtocolVersion = 2;
+        public const int ProtocolVersion = 3;
 
         private const string RpcHello = "DesirePaths_Hello";
         private const string RpcHelloAck = "DesirePaths_HelloAck";

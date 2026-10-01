@@ -24,9 +24,6 @@ namespace DesirePaths
             Cultivated,
         }
 
-        private static readonly Color Dirt = Color.red;
-        private static readonly Color Paved = Color.blue;
-
         private static readonly List<Piece> PieceBuffer = new List<Piece>();
         private static readonly List<Heightmap> HeightmapBuffer = new List<Heightmap>();
 
@@ -48,24 +45,17 @@ namespace DesirePaths
             }
 
             bool buildingsNearby = BuildingsNearby(pos, shape);
-            bool smooth = shape.SmoothRadius > 0f && !buildingsNearby;
+            // Smooth at the first stage, when it becomes a path, and when it becomes a road.
+            bool smoothStage = stage == WearStage.Trampled || stage == WearStage.DirtPath || stage == WearStage.StoneRoad;
+            bool smooth = smoothStage && shape.SmoothRadius > 0f && !buildingsNearby;
 
-            // Never downgrade: a hand-paved road stays paved when it reaches the dirt stage.
-            bool paint = false;
-            Color color = default;
-            float paintRadius = 0f;
-            if (stage == WearStage.DirtPath && surface == Surface.Natural)
-            {
-                paint = true;
-                color = Dirt;
-                paintRadius = shape.DirtPathRadius;
-            }
-            else if (stage == WearStage.StoneRoad && surface != Surface.Paved)
-            {
-                paint = true;
-                color = Paved;
-                paintRadius = shape.StoneRoadRadius;
-            }
+            // Never downgrade: hand-paved ground is left as is, and dirt (e.g. a hoe path) isn't
+            // repainted by the dirt stages.
+            PaintStyle style = StyleFor(stage);
+            bool paint = style.Kind != PaintKind.None
+                && surface != Surface.Paved
+                && !(surface == Surface.Dirt && stage <= WearStage.DirtPath);
+            float paintRadius = stage == WearStage.StoneRoad ? shape.StoneRoadRadius : shape.DirtPathRadius;
 
             if (!smooth && !paint)
             {
@@ -98,7 +88,7 @@ namespace DesirePaths
             foreach (TerrainComp tc in compilers)
             {
                 int h = haveAverage ? SmoothHeights(tc, pos, shape.SmoothRadius, shape.SmoothPower, average) : 0;
-                int p = paint ? PaintNodes(tc, pos, paintRadius, color) : 0;
+                int p = paint ? PaintNodes(tc, pos, paintRadius, style) : 0;
                 if (h + p == 0)
                     continue;
 
@@ -112,7 +102,7 @@ namespace DesirePaths
             if (paint)
                 ClutterSystem.instance?.ResetGrass(pos, paintRadius + 0.5f);
 
-            Plugin.Log.LogInfo($"{stage} at {pos:F1}: smoothed {heightNodes} height nodes, painted {paintNodes} paint nodes{(paint ? " " + (color == Dirt ? "dirt" : "paved") : "")} in {zones} zone(s); surface was {surface}, buildings nearby {buildingsNearby}.");
+            Plugin.Log.LogInfo($"{stage} at {pos:F1}: smoothed {heightNodes} height nodes, painted {paintNodes} paint nodes{(paint ? " (" + style.Kind + ")" : "")} in {zones} zone(s); surface was {surface}, buildings nearby {buildingsNearby}.");
             return zones > 0;
         }
 
@@ -184,8 +174,53 @@ namespace DesirePaths
             return changed;
         }
 
-        /// <summary>Blends the paint mask toward <paramref name="color"/>. Returns nodes changed.</summary>
-        private static int PaintNodes(TerrainComp tc, Vector3 center, float radius, Color color)
+        private enum PaintKind
+        {
+            None,
+            DirtPatches,   // partial red, patchy
+            DirtFull,      // red, like the hoe's path
+            PavingPatches, // partial blue over dirt, patchy
+            PavingFull,    // blue, like the hoe's paved road
+        }
+
+        private struct PaintStyle
+        {
+            public PaintKind Kind;
+            public float Coverage; // share of the area that shows wear (patch styles)
+            public float Amount;   // channel strength where it shows (patch styles)
+        }
+
+        private static PaintStyle StyleFor(WearStage stage)
+        {
+            switch (stage)
+            {
+                case WearStage.Trampled: return new PaintStyle { Kind = PaintKind.DirtPatches, Coverage = 0.5f, Amount = 0.5f };
+                case WearStage.Worn: return new PaintStyle { Kind = PaintKind.DirtPatches, Coverage = 0.85f, Amount = 0.85f };
+                case WearStage.DirtPath: return new PaintStyle { Kind = PaintKind.DirtFull };
+                case WearStage.Gravel: return new PaintStyle { Kind = PaintKind.PavingPatches, Coverage = 0.6f, Amount = 0.55f };
+                case WearStage.StoneRoad: return new PaintStyle { Kind = PaintKind.PavingFull };
+                default: return new PaintStyle { Kind = PaintKind.None };
+            }
+        }
+
+        /// <summary>
+        /// 0..1 noise used to make early wear patchy instead of a uniform smear. Perlin gives
+        /// blobs a couple of metres across; a little per-node jitter breaks up their edges.
+        /// </summary>
+        private static float Patchiness(Vector3 world)
+        {
+            float n = Mathf.PerlinNoise(world.x * 0.45f + 1000f, world.z * 0.45f + 1000f);
+            float jitter = Mathf.PerlinNoise(world.x * 2.3f + 500f, world.z * 2.3f + 500f);
+            return Mathf.Clamp01(n * 0.8f + jitter * 0.2f);
+        }
+
+        /// <summary>
+        /// Paints one stage. Paint channels: red = dirt, green = cultivated (never touched here),
+        /// blue = paving; partial values blend the textures, which is how the patchy stages work.
+        /// Channels only ever increase toward the stage's look, so overlapping brushes from
+        /// neighbouring cells never undo each other. Returns the number of nodes changed.
+        /// </summary>
+        private static int PaintNodes(TerrainComp tc, Vector3 center, float radius, PaintStyle style)
         {
             Heightmap hm = tc.m_hmap;
             int max = tc.m_width + 1;
@@ -200,7 +235,8 @@ namespace DesirePaths
             for (int z = 0; z < max; z++)
             for (int x = 0; x < max; x++)
             {
-                float d = Utils.DistanceXZ(center, NodeToWorld(hm, x, z)) / radius;
+                Vector3 world = NodeToWorld(hm, x, z);
+                float d = Utils.DistanceXZ(center, world) / radius;
                 if (d > 1f)
                     continue;
                 int i = z * max + x;
@@ -210,12 +246,40 @@ namespace DesirePaths
                 if (ashlands && !tc.m_modifiedPaint[i])
                     source.a = 0f;
 
-                Color target = color;
-                target.a = source.a; // keep lava/biome data untouched
-
                 // Full strength over the inner 70%, soft edge outside it.
-                float strength = Mathf.Clamp01((1f - d) / 0.3f);
-                tc.m_paintMask[i] = Color.Lerp(source, target, strength);
+                float edge = Mathf.Clamp01((1f - d) / 0.3f);
+                Color result = source;
+
+                switch (style.Kind)
+                {
+                    case PaintKind.DirtPatches:
+                    case PaintKind.PavingPatches:
+                    {
+                        // Wear is likelier near the middle of the trail.
+                        float coverage = style.Coverage * (1f - 0.5f * d);
+                        float show = Mathf.Clamp01((coverage - Patchiness(world)) * 5f);
+                        float amount = show * edge * style.Amount;
+                        if (amount < 0.02f)
+                            continue; // leave untouched ground untouched
+                        if (style.Kind == PaintKind.DirtPatches)
+                            result.r = Mathf.Max(source.r, amount);
+                        else
+                            result.b = Mathf.Max(source.b, amount);
+                        break;
+                    }
+                    case PaintKind.DirtFull:
+                        result.r = Mathf.Lerp(source.r, 1f, edge);
+                        break;
+                    case PaintKind.PavingFull:
+                        result.r = Mathf.Lerp(source.r, 0f, edge);
+                        result.b = Mathf.Lerp(source.b, 1f, edge);
+                        break;
+                }
+                result.a = source.a; // keep lava/biome data untouched
+
+                if (tc.m_modifiedPaint[i] && result == source)
+                    continue;
+                tc.m_paintMask[i] = result;
                 tc.m_modifiedPaint[i] = true;
                 changed++;
             }
@@ -271,8 +335,10 @@ namespace DesirePaths
 
                 Color c = tc.m_paintMask[index];
                 if (c.g > 0.5f && c.g >= c.r && c.g >= c.b) return Surface.Cultivated;
-                if (c.b > 0.5f) return Surface.Paved;
-                if (c.r > 0.5f) return Surface.Dirt;
+                // Only fully dirt or fully paved ground counts; the mod's own partial stages
+                // (worn patches, gravel) must not block the stages after them.
+                if (c.b > 0.9f) return Surface.Paved;
+                if (c.r > 0.95f) return Surface.Dirt;
                 return Surface.Natural;
             }
             catch (Exception e)
