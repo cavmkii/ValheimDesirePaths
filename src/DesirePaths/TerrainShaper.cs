@@ -31,7 +31,7 @@ namespace DesirePaths
         /// Applies a stage at <paramref name="pos"/>. Returns true only if terrain was changed.
         /// Every outcome is logged so failures are visible without debug logging.
         /// </summary>
-        public static bool Apply(Vector3 pos, WearStage stage, ShapeSettings shape)
+        public static bool Apply(Vector3 pos, WearStage stage, ShapeSettings shape, List<Vector3> links)
         {
             if (stage == WearStage.Untouched)
                 return false;
@@ -51,7 +51,7 @@ namespace DesirePaths
 
             // Never downgrade: hand-paved ground is left as is, and dirt (e.g. a hoe path) isn't
             // repainted by the dirt stages.
-            PaintStyle style = StyleFor(stage);
+            PaintStyle style = StyleFor(stage, shape.WearIntensity);
             bool paint = style.Kind != PaintKind.None
                 && surface != Surface.Paved
                 && !(surface == Surface.Dirt && stage <= WearStage.DirtPath);
@@ -64,8 +64,16 @@ namespace DesirePaths
             }
 
             float radius = Mathf.Max(smooth ? shape.SmoothRadius : 0f, paint ? paintRadius : 0f);
+            // The paint is a stroke from this cell's centre to each neighbouring cell already at
+            // this stage, so cells reaching a stage join into a continuous trail instead of a
+            // row of separate circles.
+            float reach = 0f;
+            if (links != null)
+                foreach (Vector3 l in links)
+                    reach = Mathf.Max(reach, Utils.DistanceXZ(pos, l));
+
             HeightmapBuffer.Clear();
-            Heightmap.FindHeightmap(pos, radius + 1f, HeightmapBuffer);
+            Heightmap.FindHeightmap(pos, radius + reach + 1f, HeightmapBuffer);
 
             var compilers = new List<TerrainComp>();
             foreach (Heightmap hm in HeightmapBuffer)
@@ -88,7 +96,7 @@ namespace DesirePaths
             foreach (TerrainComp tc in compilers)
             {
                 int h = haveAverage ? SmoothHeights(tc, pos, shape.SmoothRadius, shape.SmoothPower, average) : 0;
-                int p = paint ? PaintNodes(tc, pos, paintRadius, style) : 0;
+                int p = paint ? PaintNodes(tc, pos, links, paintRadius, style) : 0;
                 if (h + p == 0)
                     continue;
 
@@ -102,7 +110,7 @@ namespace DesirePaths
             if (paint)
                 ClutterSystem.instance?.ResetGrass(pos, paintRadius + 0.5f);
 
-            Plugin.Log.LogInfo($"{stage} at {pos:F1}: smoothed {heightNodes} height nodes, painted {paintNodes} paint nodes{(paint ? " (" + style.Kind + ")" : "")} in {zones} zone(s); surface was {surface}, buildings nearby {buildingsNearby}.");
+            Plugin.Log.LogInfo($"{stage} at {pos:F1}: smoothed {heightNodes} height nodes, painted {paintNodes} paint nodes{(paint ? " (" + style.Kind + ")" : "")} in {zones} zone(s), linked to {links?.Count ?? 0} neighbour(s); surface was {surface}, buildings nearby {buildingsNearby}.");
             return zones > 0;
         }
 
@@ -190,14 +198,27 @@ namespace DesirePaths
             public float Amount;   // channel strength where it shows (patch styles)
         }
 
-        private static PaintStyle StyleFor(WearStage stage)
+        /// <summary>
+        /// Patch stages: Coverage is the share of ground that shows wear, Amount the paint strength
+        /// there. Strong dirt (roughly above half) is what makes the game drop grass, so Worn uses
+        /// full-strength patches: patchy grass with bare ground between, short of a hoed path.
+        /// </summary>
+        private static PaintStyle StyleFor(WearStage stage, float intensity)
         {
+            float k = Mathf.Max(0f, intensity);
+            PaintStyle Patches(PaintKind kind, float coverage, float amount) => new PaintStyle
+            {
+                Kind = kind,
+                Coverage = Mathf.Clamp01(coverage * k),
+                Amount = Mathf.Clamp01(amount * k),
+            };
+
             switch (stage)
             {
-                case WearStage.Trampled: return new PaintStyle { Kind = PaintKind.DirtPatches, Coverage = 0.5f, Amount = 0.5f };
-                case WearStage.Worn: return new PaintStyle { Kind = PaintKind.DirtPatches, Coverage = 0.85f, Amount = 0.85f };
+                case WearStage.Trampled: return Patches(PaintKind.DirtPatches, 0.5f, 0.7f);
+                case WearStage.Worn: return Patches(PaintKind.DirtPatches, 0.8f, 1f);
                 case WearStage.DirtPath: return new PaintStyle { Kind = PaintKind.DirtFull };
-                case WearStage.Gravel: return new PaintStyle { Kind = PaintKind.PavingPatches, Coverage = 0.6f, Amount = 0.55f };
+                case WearStage.Gravel: return Patches(PaintKind.PavingPatches, 0.6f, 0.6f);
                 case WearStage.StoneRoad: return new PaintStyle { Kind = PaintKind.PavingFull };
                 default: return new PaintStyle { Kind = PaintKind.None };
             }
@@ -220,7 +241,7 @@ namespace DesirePaths
         /// Channels only ever increase toward the stage's look, so overlapping brushes from
         /// neighbouring cells never undo each other. Returns the number of nodes changed.
         /// </summary>
-        private static int PaintNodes(TerrainComp tc, Vector3 center, float radius, PaintStyle style)
+        private static int PaintNodes(TerrainComp tc, Vector3 center, List<Vector3> links, float radius, PaintStyle style)
         {
             Heightmap hm = tc.m_hmap;
             int max = tc.m_width + 1;
@@ -236,7 +257,7 @@ namespace DesirePaths
             for (int x = 0; x < max; x++)
             {
                 Vector3 world = NodeToWorld(hm, x, z);
-                float d = Utils.DistanceXZ(center, world) / radius;
+                float d = StrokeDistance(world, center, links) / radius;
                 if (d > 1f)
                     continue;
                 int i = z * max + x;
@@ -284,6 +305,26 @@ namespace DesirePaths
                 changed++;
             }
             return changed;
+        }
+
+        /// <summary>Horizontal distance from <paramref name="p"/> to the stroke: the centre point plus a segment to each link.</summary>
+        private static float StrokeDistance(Vector3 p, Vector3 center, List<Vector3> links)
+        {
+            float best = Utils.DistanceXZ(p, center);
+            if (links == null)
+                return best;
+
+            var a = new Vector2(center.x, center.z);
+            var q = new Vector2(p.x, p.z);
+            foreach (Vector3 l in links)
+            {
+                var b = new Vector2(l.x, l.z);
+                Vector2 ab = b - a;
+                float len2 = ab.sqrMagnitude;
+                float t = len2 > 0f ? Mathf.Clamp01(Vector2.Dot(q - a, ab) / len2) : 0f;
+                best = Mathf.Min(best, Vector2.Distance(q, a + ab * t));
+            }
+            return best;
         }
 
         private static void Save(TerrainComp tc)

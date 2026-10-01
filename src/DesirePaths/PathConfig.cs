@@ -29,6 +29,7 @@ namespace DesirePaths
         public static ConfigEntry<float> StoneRoadRadius;
         public static ConfigEntry<float> BuildingClearance;
         public static ConfigEntry<bool> ProtectCultivated;
+        public static ConfigEntry<float> WearIntensity;
         public static ConfigEntry<Heightmap.Biome> ExcludedBiomes;
 
         public static ConfigEntry<bool> ShowOnMap;
@@ -104,6 +105,10 @@ namespace DesirePaths
 
             ProtectCultivated = cfg.Bind("4 - Terrain", "ProtectCultivated", true,
                 "Never smooth or repaint cultivated soil, so walking through your farm does not turn it into a road.");
+
+            WearIntensity = cfg.Bind("4 - Terrain", "WearIntensity", 1f,
+                new ConfigDescription("Scales how much ground the patchy stages (trampled, worn, gravel) cover and how strong they are. Raise it if early wear is hard to see, lower it for subtler trails. Only affects ground painted after the change.",
+                    new AcceptableValueRange<float>(0.25f, 3f)));
 
             ExcludedBiomes = cfg.Bind("4 - Terrain", "ExcludedBiomes", Heightmap.Biome.Ocean,
                 "Biomes where steps are not counted. Combine with commas, e.g. \"Ocean, AshLands\".");
