@@ -42,9 +42,10 @@ namespace DesirePaths
 
         /// <summary>
         /// Adds one step at <paramref name="pos"/>. Returns the stage the cell has just advanced to,
-        /// or <see cref="WearStage.Untouched"/> if nothing changed.
+        /// or <see cref="WearStage.Untouched"/> if nothing changed. <paramref name="previous"/> is
+        /// the stage before this step, so callers can apply every stage passed through.
         /// </summary>
-        public WearStage RecordStep(Vector3 pos, double now, out float steps)
+        public WearStage RecordStep(Vector3 pos, double now, out float steps, out WearStage previous)
         {
             long key = CellKey(pos, PathConfig.CellSize.Value);
             _cells.TryGetValue(key, out Cell cell);
@@ -52,6 +53,7 @@ namespace DesirePaths
             cell.Steps = Decayed(cell, now) + 1f;
             cell.LastStep = now;
             steps = cell.Steps;
+            previous = cell.Stage;
 
             WearStage reached = StageFor(cell.Steps);
             WearStage advancedTo = WearStage.Untouched;
@@ -93,6 +95,9 @@ namespace DesirePaths
             return Mathf.Max(0f, cell.Steps - (float)(days * perDay));
         }
 
+        /// <summary>True if stage <paramref name="s"/> is switched on (its own step setting isn't 0).</summary>
+        public static bool IsEnabled(int[] thresholds, int s) => thresholds[s] > 0;
+
         /// <summary>Highest enabled stage whose threshold <paramref name="steps"/> has met.</summary>
         private static WearStage StageFor(float steps)
         {
@@ -100,7 +105,7 @@ namespace DesirePaths
             WearStage stage = WearStage.Untouched;
             for (int s = 1; s < thresholds.Length; s++)
             {
-                if (thresholds[s] > 0 && steps >= thresholds[s])
+                if (IsEnabled(thresholds, s) && steps >= thresholds[s])
                     stage = (WearStage)s;
             }
             return stage;

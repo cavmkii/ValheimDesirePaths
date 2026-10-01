@@ -15,11 +15,11 @@ namespace DesirePaths
         public static ConfigEntry<float> CellSize;
         public static ConfigEntry<float> SameCellCooldown;
 
-        public static ConfigEntry<int> StepsToTrample;
-        public static ConfigEntry<int> StepsToWear;
-        public static ConfigEntry<int> StepsToDirtPath;
-        public static ConfigEntry<int> StepsToGravel;
-        public static ConfigEntry<int> StepsToStoneRoad;
+        public static ConfigEntry<int> StepsToTrampled;
+        public static ConfigEntry<int> StepsTrampledToWorn;
+        public static ConfigEntry<int> StepsWornToDirtPath;
+        public static ConfigEntry<int> StepsDirtPathToGravel;
+        public static ConfigEntry<int> StepsGravelToStoneRoad;
 
         public static ConfigEntry<float> DecayPerDay;
 
@@ -55,24 +55,25 @@ namespace DesirePaths
                     "Seconds before the same player can add another step to the same cell. Stops standing still or circling in place from wearing a path.",
                     new AcceptableValueRange<float>(0f, 600f)));
 
-            StepsToTrample = cfg.Bind("2 - Thresholds", "StepsToTrample", 15,
-                new ConfigDescription("Steps through a cell before faint brown patches show through the grass and the ground is lightly smoothed. 0 skips this stage.",
+            // Each value is the number of steps from the previous stage, not a running total.
+            StepsToTrampled = cfg.Bind("2 - Steps between stages", "StepsToTrampled", 15,
+                new ConfigDescription("Steps through untouched ground before faint brown patches show through the grass and it is lightly smoothed. 0 skips this stage.",
                     new AcceptableValueRange<int>(0, 100000)));
 
-            StepsToWear = cfg.Bind("2 - Thresholds", "StepsToWear", 40,
-                new ConfigDescription("Steps before the patches grow and darken into a worn trail. Grass still grows. 0 skips this stage.",
+            StepsTrampledToWorn = cfg.Bind("2 - Steps between stages", "StepsTrampledToWorn", 25,
+                new ConfigDescription("Further steps after Trampled before the patches grow and darken into a worn trail. Grass still grows. 0 skips this stage.",
                     new AcceptableValueRange<int>(0, 100000)));
 
-            StepsToDirtPath = cfg.Bind("2 - Thresholds", "StepsToDirtPath", 100,
-                new ConfigDescription("Steps before the cell becomes bare dirt, as if the hoe's path tool was used. 0 skips this stage.",
+            StepsWornToDirtPath = cfg.Bind("2 - Steps between stages", "StepsWornToDirtPath", 60,
+                new ConfigDescription("Further steps after Worn before the ground becomes bare dirt, like the hoe's path tool. 0 skips this stage.",
                     new AcceptableValueRange<int>(0, 100000)));
 
-            StepsToGravel = cfg.Bind("2 - Thresholds", "StepsToGravel", 250,
-                new ConfigDescription("Steps before paving starts showing through the dirt in patches. 0 skips this stage.",
+            StepsDirtPathToGravel = cfg.Bind("2 - Steps between stages", "StepsDirtPathToGravel", 150,
+                new ConfigDescription("Further steps after Dirt path before paving starts showing through the dirt in patches. 0 skips this stage.",
                     new AcceptableValueRange<int>(0, 100000)));
 
-            StepsToStoneRoad = cfg.Bind("2 - Thresholds", "StepsToStoneRoad", 500,
-                new ConfigDescription("Steps before the cell becomes a fully paved stone road. 0 skips this stage.",
+            StepsGravelToStoneRoad = cfg.Bind("2 - Steps between stages", "StepsGravelToStoneRoad", 250,
+                new ConfigDescription("Further steps after Gravel before the ground becomes a fully paved stone road. 0 skips this stage.",
                     new AcceptableValueRange<int>(0, 100000)));
 
             DecayPerDay = cfg.Bind("3 - Decay", "DecayPerDay", 2f,
@@ -131,7 +132,25 @@ namespace DesirePaths
                 "Log every counted step and stage change to the BepInEx console.");
         }
 
-        /// <summary>Thresholds indexed by stage (1..3). A threshold of 0 disables that stage.</summary>
-        public static int[] Thresholds() => new[] { 0, StepsToTrample.Value, StepsToWear.Value, StepsToDirtPath.Value, StepsToGravel.Value, StepsToStoneRoad.Value };
+        /// <summary>
+        /// Total steps needed to reach each stage, indexed by stage (1..5), built by adding up the
+        /// per-stage settings. A stage whose own setting is 0 is disabled and gets -1.
+        /// </summary>
+        public static int[] Thresholds()
+        {
+            int[] steps =
+            {
+                0, StepsToTrampled.Value, StepsTrampledToWorn.Value, StepsWornToDirtPath.Value,
+                StepsDirtPathToGravel.Value, StepsGravelToStoneRoad.Value,
+            };
+            var totals = new int[steps.Length];
+            int running = 0;
+            for (int s = 1; s < steps.Length; s++)
+            {
+                running += Mathf.Max(0, steps[s]);
+                totals[s] = steps[s] > 0 ? running : -1;
+            }
+            return totals;
+        }
     }
 }
