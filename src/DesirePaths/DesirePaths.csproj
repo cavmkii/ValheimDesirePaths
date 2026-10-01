@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net462</TargetFramework>
+    <!-- Valheim's Unity runtime uses the .NET Standard 2.1 profile. -->
+    <TargetFramework>netstandard2.1</TargetFramework>
     <AssemblyName>DesirePaths</AssemblyName>
     <RootNamespace>DesirePaths</RootNamespace>
     <Version>0.1.0</Version>
@@ -26,13 +27,16 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
     <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.3" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>
     <Reference Include="assembly_valheim" Publicize="true">
       <HintPath>$(ManagedDir)/assembly_valheim.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="assembly_utils">
+      <HintPath>$(ManagedDir)/assembly_utils.dll</HintPath>
       <Private>false</Private>
     </Reference>
     <Reference Include="UnityEngine">
@@ -56,6 +60,22 @@
   <!-- Optional: dotnet build -p:DeployToGame=true copies the plugin into BepInEx/plugins. -->
   <Target Name="DeployToGame" AfterTargets="Build" Condition="'$(DeployToGame)' == 'true'">
     <Copy SourceFiles="$(TargetPath)" DestinationFolder="$(BepInExDir)/plugins/DesirePaths" />
+  </Target>
+
+  <!--
+    dotnet build -c Release -p:PackageZip=true writes dist/DesirePaths-<version>.zip with the
+    DLL at the archive root, which mod managers (Vortex, r2modman) install into BepInEx/plugins.
+  -->
+  <Target Name="PackageZip" AfterTargets="Build" Condition="'$(PackageZip)' == 'true'">
+    <PropertyGroup>
+      <ZipStaging>$(BaseIntermediateOutputPath)zip/</ZipStaging>
+      <DistDir>$(MSBuildProjectDirectory)/../../dist/</DistDir>
+    </PropertyGroup>
+    <RemoveDir Directories="$(ZipStaging)" />
+    <Copy SourceFiles="$(TargetPath);$(MSBuildProjectDirectory)/../../README.md;$(MSBuildProjectDirectory)/../../thunderstore/manifest.json" DestinationFolder="$(ZipStaging)" />
+    <MakeDir Directories="$(DistDir)" />
+    <ZipDirectory SourceDirectory="$(ZipStaging)" DestinationFile="$(DistDir)DesirePaths-$(Version).zip" Overwrite="true" />
+    <Message Importance="high" Text="Packaged $(DistDir)DesirePaths-$(Version).zip" />
   </Target>
 
 </Project>
